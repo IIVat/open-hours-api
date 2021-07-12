@@ -1,4 +1,4 @@
-package app
+package app.service
 
 import app.model.WorkingWeekSchedule
 

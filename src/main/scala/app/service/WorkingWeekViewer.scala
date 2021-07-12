@@ -1,4 +1,4 @@
-package app
+package app.service
 
 import app.model.WorkingHour._
 import app.model.{WorkingDay, WorkingHour, WorkingWeek}

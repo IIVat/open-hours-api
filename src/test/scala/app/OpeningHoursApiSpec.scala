@@ -6,14 +6,15 @@ import org.scalatest.wordspec.AnyWordSpec
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Route
 import app.model.WorkingWeekSchedule.DaysOfWeek
-import app.model.ScheduleView
+import app.router.OpeningHoursRouter
+import app.service.{WorkingWeekOrganizer, WorkingWeekService, WorkingWeekViewer}
 
 import scala.io.Source
 import scala.util.Using
 import io.circe.parser._
 import io.circe.syntax._
 import io.circe.generic.auto._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+//import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 
 class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
 
@@ -36,11 +37,11 @@ class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       request ~> route ~> check {
         status shouldEqual StatusCodes.OK
 
-        contentType shouldEqual ContentTypes.`application/json`
+        contentType shouldEqual ContentTypes.`text/plain(UTF-8)`
 
-        entityAs[ScheduleView[String]] shouldEqual
-          ScheduleView("Monday: 1 AM - 6 PM\nTuesday: 1 AM - 6 PM\nWednesday: 1 AM - 6 PM\nThursday: 1 AM - 6 PM" +
-            "\nFriday: 1 AM - 6 PM, 7 PM - 2 AM\nSaturday: 9 AM - 11 AM, 4 PM - 11 PM\nSunday: 1 AM - 6 PM")
+        responseAs[String] shouldEqual
+          "Monday: 1.00 AM - 6.00 PM\nTuesday: 1.00 AM - 6.00 PM\nWednesday: 1.00 AM - 6.00 PM\nThursday: 1.00 AM - 6.00 PM" +
+            "\nFriday: 1.00 AM - 6.00 PM, 7.00 PM - 2.00 AM\nSaturday: 9.00 AM - 11.00 AM, 4.00 PM - 11.00 PM\nSunday: 1.00 AM - 6.00 PM"
       }
     }
 
@@ -55,9 +56,9 @@ class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       request ~> route ~> check {
         status shouldEqual StatusCodes.OK
 
-        contentType shouldEqual ContentTypes.`application/json`
+        contentType shouldEqual ContentTypes.`text/plain(UTF-8)`
 
-        entityAs[ScheduleView[String]] shouldEqual ScheduleView(response.mkString("\n"))
+        responseAs[String] shouldEqual response.mkString("\n")
       }
     }
 
@@ -99,7 +100,8 @@ class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       val request = Post("/opening-hours").withEntity(ContentTypes.`application/json`, stateIsNotValid)
       request ~> Route.seal(route) ~> check {
         status shouldEqual StatusCodes.BadRequest
-        responseAs[String] shouldEqual "[\"[Open, Open] is invalid.\"]"
+
+        responseAs[String] shouldEqual """"[\"[Open, Open] is invalid.\"]""""
       }
     }
 
@@ -111,7 +113,7 @@ class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       val request = Post("/opening-hours").withEntity(ContentTypes.`application/json`, stateIsNotValid)
       request ~> Route.seal(route) ~> check {
         status shouldEqual StatusCodes.BadRequest
-        responseAs[String] shouldEqual "[\"[Close, Close] is invalid.\"]"
+        responseAs[String] shouldEqual """"[\"[Close, Close] is invalid.\"]""""
       }
     }
 
@@ -123,7 +125,7 @@ class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       val request = Post("/opening-hours").withEntity(ContentTypes.`application/json`, stateIsNotValid)
       request ~> Route.seal(route) ~> check {
         status shouldEqual StatusCodes.BadRequest
-        responseAs[String] shouldEqual "[\"The CloseState(3600) must be in a pair: [Open, Close].\"]"
+        responseAs[String] shouldEqual """"[\"The CloseState(3600) must be in a pair: [Open, Close].\"]""""
       }
     }
 
@@ -135,7 +137,7 @@ class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       val request = Post("/opening-hours").withEntity(ContentTypes.`application/json`, stateIsNotValid)
       request ~> Route.seal(route) ~> check {
         status shouldEqual StatusCodes.BadRequest
-        responseAs[String] shouldEqual "[\"[Close, Open] is invalid.\"]"
+        responseAs[String] shouldEqual """"[\"[Close, Open] is invalid.\"]""""
       }
     }
 
@@ -147,8 +149,8 @@ class OpeningHoursApiSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       val request = Post("/opening-hours").withEntity(ContentTypes.`application/json`, stateIsNotValid)
       request ~> Route.seal(route) ~> check {
         status shouldEqual StatusCodes.OK
-        entityAs[ScheduleView[String]] shouldEqual ScheduleView("Monday: Closed\nTuesday: Closed\n" +
-          "Wednesday: Closed\nThursday: Closed\nFriday: Closed\nSaturday: 10 PM - 1 AM\nSunday: 2 AM - 4 AM")
+        entityAs[String] shouldEqual "Monday: Closed\nTuesday: Closed\n" +
+          "Wednesday: Closed\nThursday: Closed\nFriday: Closed\nSaturday: 10.53 PM - 1.00 AM\nSunday: 2.00 AM - 4.13 AM"
       }
     }
 

@@ -1,8 +1,8 @@
-package app
+package app.service
 
 import app.model.WorkingHour.{CloseState, OpenState}
-import app.model.{WorkingHour, WorkingWeek, WorkingWeekSchedule}
 import app.model.WorkingWeekSchedule.DaysOfWeek
+import app.model.{WorkingHour, WorkingWeek, WorkingWeekSchedule}
 
 import scala.annotation.tailrec
 
@@ -54,16 +54,8 @@ object WorkingWeekOrganizer {
             !stack.headOption.map(_._1).contains(day)
         }
 
-        def isFirstElemInCloseState(h: WorkingHour) = {
-          stack.size == 1 &&
-            stack.headOption.exists(_._2.isInstanceOf[CloseState]) &&
-            !h.isInstanceOf[CloseState]
-        }
-
         elems match {
           case Nil => stack
-//          case h :: tail if isFirstElemInCloseState(h._2) =>
-//            recFix(tail ::: List(stack.head), h :: stack.tail)
           case (day, hour) :: tail if isRequiredReorganizing(day, hour) =>
             val prev = stack.head
             recFix(tail, (prev._1, hour) :: (prev._1, stack.head._2) :: stack.tail)

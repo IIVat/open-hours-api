@@ -53,5 +53,3 @@ object WorkingHour {
     }
   }
 }
-
-final case class ScheduleView[R](view: R)
