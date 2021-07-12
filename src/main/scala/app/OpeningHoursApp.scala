@@ -3,12 +3,9 @@ package app
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Directives._
+import app.model.WorkingWeekSchedule.DaysOfWeek
 import io.circe.generic.auto._
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe.{Decoder, Encoder}
-import app.Schedule._
+import app._
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.io.StdIn
@@ -20,9 +17,13 @@ object OpeningHoursApp {
 
     implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-    val scheduleFormatter = RestaurantScheduleFormatter.format
+    type Error = List[String]
 
-    val route = new OpeningHoursRouter[RestaurantSchedule, String](scheduleFormatter).route
+    val organizer = WorkingWeekOrganizer.organizeWorkingWeek
+    val viewer = WorkingWeekViewer.view
+    val service = new WorkingWeekService(organizer, viewer)
+
+    val route = new OpeningHoursRouter[DaysOfWeek, Error, String](service).route
 
     val bindingFuture = Http().newServerAt("localhost", 9000).bind(route)
 

@@ -57,12 +57,16 @@
     {
       "type": "close",
       "value": 64800
+    },
+    {
+      "type": "open",
+      "value": 68400
     }
   ],
   "saturday": [
     {
       "type": "close",
-      "value": 3600
+      "value": 7200
     },
     {
       "type": "open",

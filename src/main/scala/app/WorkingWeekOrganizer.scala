@@ -1,65 +1,78 @@
 package app
 
-import WorkingHour._
+import app.model.WorkingHour.{CloseState, OpenState}
+import app.model.{WorkingHour, WorkingWeek, WorkingWeekSchedule}
+import app.model.WorkingWeekSchedule.DaysOfWeek
 
 import scala.annotation.tailrec
 
+trait WorkingWeekOrganizer[T <: WorkingWeekSchedule] {
+  def organize(week: T): WorkingWeek
+}
+
 object WorkingWeekOrganizer {
-  type Day = String
+  def organizeWorkingWeek: WorkingWeekOrganizer[DaysOfWeek] = new WorkingWeekOrganizer[DaysOfWeek] {
+    private type Day = String
 
-  def organize(week: WorkingWeek): WorkingWeek = {
+    override def organize(schedule: DaysOfWeek): WorkingWeek = {
+      val week = WorkingWeek.from(schedule)
+      val (closed, opened) = week.days.partition(_.hours.isEmpty)
 
-    val (closed, opened) = week.days.partition(_.hours.isEmpty)
-
-    val list = opened
-      .flatMap { day =>
-        day.hours.map(hour => day.name -> hour)
-      }
-
-
-    val days =
-      fixWorkingHoursOrder(list.toList)
-        .view
-        .groupBy(_._1)
-        .view
-        .values
-        .flatMap { hours =>
-          val hs = hours.map(_._2).toList
-          week.days
-            .map(WorkingDay.copy(_, hs))
+      val list = opened
+        .flatMap { day =>
+          day.hours.map(hour => day.day.name -> hour).sortBy(_._2.value)
         }
 
-    WorkingWeek(days.toSeq)
-  }
+      val days =
+        fixWorkingHoursOrder(list.toList)
+          .view
+          .groupBy(_._1)
+          .view
+          .map {
+            case (day, hours) =>
+              day -> hours.map(_._2)
+          }
+          .flatMap { case (day, hours) =>
+            week.days.find(_.day.name == day)
+              .map(d => d.copy(hours = hours.toList))
+          }
 
-  private def fixWorkingHoursOrder(hours: List[(Day, WorkingHour)]): List[(Day, WorkingHour)] = {
-    @tailrec
-    def recFix(elems: List[(Day, WorkingHour)],
-               stack: List[(Day, WorkingHour)]
-              ): List[(Day, WorkingHour)] = {
 
-      def isRequiredReorganizing(day: Day, hour: WorkingHour) = {
-        stack.nonEmpty &&
-          hour.isInstanceOf[CloseState] &&
-          stack.headOption.map(_._2).exists(_.isInstanceOf[OpenState]) &&
-          !stack.headOption.map(_._1).contains(day)
-      }
-
-      def isCloseStateFirstElem = {
-        stack.size == 1 && stack.headOption.exists(_._2.isInstanceOf[CloseState])
-      }
-
-      elems match {
-        case Nil => stack
-        case h :: tail if isCloseStateFirstElem =>
-          recFix(tail ::: List(stack.head), h :: stack.tail)
-        case (day, hour) :: tail if isRequiredReorganizing(day, hour) =>
-          val prev = stack.head
-          recFix(tail, (day, hour) :: (prev._1, hour) :: stack.tail)
-        case h :: tail => recFix(tail, h :: stack)
-      }
+      WorkingWeek((days.toSeq ++ closed).sortBy(_.day.id))
     }
 
-    recFix(hours, List.empty)
+    private def fixWorkingHoursOrder(hours: List[(Day, WorkingHour)]): List[(Day, WorkingHour)] = {
+      @tailrec
+      def recFix(elems: List[(Day, WorkingHour)],
+                 stack: List[(Day, WorkingHour)]
+                ): List[(Day, WorkingHour)] = {
+
+        def isRequiredReorganizing(day: Day, hour: WorkingHour) = {
+          stack.nonEmpty &&
+            hour.isInstanceOf[CloseState] &&
+            stack.headOption.map(_._2).exists(_.isInstanceOf[OpenState]) &&
+            !stack.headOption.map(_._1).contains(day)
+        }
+
+        def isFirstElemInCloseState(h: WorkingHour) = {
+          stack.size == 1 &&
+            stack.headOption.exists(_._2.isInstanceOf[CloseState]) &&
+            !h.isInstanceOf[CloseState]
+        }
+
+        elems match {
+          case Nil => stack
+//          case h :: tail if isFirstElemInCloseState(h._2) =>
+//            recFix(tail ::: List(stack.head), h :: stack.tail)
+          case (day, hour) :: tail if isRequiredReorganizing(day, hour) =>
+            val prev = stack.head
+            recFix(tail, (prev._1, hour) :: (prev._1, stack.head._2) :: stack.tail)
+          case h :: tail => recFix(tail, h :: stack)
+        }
+      }
+
+      recFix(hours, List.empty).reverse
+    }
   }
 }
+
